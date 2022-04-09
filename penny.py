@@ -83,25 +83,61 @@ def find_oracle(state_to_amplify):
 # In[3]:
 
 
+# Gets the reflection gate R that reflects across the ancilla qubit
+def find_reflection():
+    circ = QuantumCircuit(3)
+    circ.z(0)
+    return Operator(circ)
+
+# Gets the iterate U*R*U^-1*R
+def find_iterate(state_to_amplify):
+    circ = QuantumCircuit(3)
+    Uop = find_oracle(state_to_amplify)
+    Rop = find_reflection()
+    circ.append(Rop, [0,1,2])
+    circ.append(Uop, [0,1,2])
+    circ.append(Rop, [0,1,2])
+    circ.append(Uop, [0,1,2])
+    return Operator(circ)
+
+
+# Function is obsolete for now, using find_iterate instead?
 # note cur_state is a circuit
 # state_to_amplify is an integer between 0 and 3 representing one of the basis states
-def grover_iterate(cur_state, state_to_amplify): 
-    oracle = find_oracle(state_to_amplify)
-    preparation = cur_state.gates()
-    projection = matrix_to_gate([[1,0,0,0],[0,-1,0,0],[0,0,-1,0],[0,0,0,-1]])
+# def grover_iterate(cur_state, state_to_amplify): 
+#     oracle = find_oracle(state_to_amplify)
+#     preparation = cur_state.gates()
+#     projection = matrix_to_gate([[1,0,0,0],[0,-1,0,0],[0,0,-1,0],[0,0,0,-1]])
     
-    cur_state.append(oracle)
-    cur_state.append(preparation)
-    cur_state.append(projection)
-    cur_state.append(preparation.inverse())
+#     cur_state.append(oracle)
+#     cur_state.append(preparation)
+#     cur_state.append(projection)
+#     cur_state.append(preparation.inverse())
     
-    return cur_state
+#     return cur_state
 
-def oblivious_amplification(curr_state, state_to_amplifiy):
+# Takes in the current state the player fed it, and then returns a circuit with OAA applied
+# The ancilla qubit from OAA is still attached here (it hasn't been measured yet), as the 0 register
+def oblivious_amplification(curr_state, state_to_amplify, num_iterations):
 	oracle = find_oracle(state_to_amplify); ancillary = QuantumRegister(1, 'ancillary')
+    iterate = find_iterate(state_to_amplify)
 	new_state = ancillary + curr_state
-	new_state.append(oracle, [2,1,0])
-	
+	#new_state.append(oracle, [2,1,0])
+    new_state.append(oracle, [0,1,2])
+    for i in range(num_iterations):
+        new_state.append(iterate, [0,1,2])
+    #Reset ancilla qubit
+    new_state.append(oracle, [0,1,2])
+    #new_state.measure([0],[0])
+    return new_state
+
+# Appends some easy scrambling gates (XH) to the start of the amplification circuit
+def soft_scramble(curr_state):
+    for i in range(curr_state.width):
+        curr_state.x(i)
+        curr_state.h(i)
+    return curr_state
+
 
 
 # # Gate sets for player
